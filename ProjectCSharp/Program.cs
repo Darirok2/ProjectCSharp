@@ -393,7 +393,7 @@ public class UI
             while (!bool.TryParse(Console.ReadLine(), out isCorrect))
             {
                 ShowError("Некорректный ввод. Пожалуйста, введите true или false.");
-                Console.Write("Этот ответ верный? (true/false): ");
+                Console.Write("Этот ответ верный?(true/false): ");
             }
             questions.Add(new Question { QuestionText = questionText, Answers = new List<Answer> { new Answer { Text = answerText, IsCorrect = isCorrect } } });
         }
