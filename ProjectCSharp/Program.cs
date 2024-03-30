@@ -1,20 +1,26 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
-
-public class Question
-{
-    public int ID { get; set; }
-    public string Theme { get; set; }
-    public string Text { get; set; }
-    public List<Answer> Answers { get; set; }
-}
 
 public class Answer
 {
     public string Text { get; set; }
     public bool IsCorrect { get; set; }
+}
+
+public class Question
+{
+    public string QuestionText { get; set; }
+    public List<Answer> Answers { get; set; }
+}
+
+public class QuestionSection
+{
+    public int ID { get; set; }
+    public string Theme { get; set; }
+    public List<Question> Questions { get; set; }
 }
 
 public class User
@@ -46,13 +52,13 @@ public class User
 public class Quiz
 {
     public int LastID { get; set; }
-    public Dictionary<string, List<Question>> QuestionsBySection { get; set; }
+    public Dictionary<string, List<QuestionSection>> QuestionsBySection { get; set; }
     public Dictionary<User, List<Question>> UserAnswers { get; set; }
 
     public Quiz()
     {
         LastID = 0;
-        QuestionsBySection = new Dictionary<string, List<Question>>();
+        QuestionsBySection = new Dictionary<string, List<QuestionSection>>();
         UserAnswers = new Dictionary<User, List<Question>>();
     }
 
@@ -120,20 +126,19 @@ public class QuizSystem
         SaveUsersToJson(users);
     }
 
-    public void AddQuestion(string section, Question question)
+    public void AddQuestion(string section, QuestionSection questionSection)
     {
         Quiz quiz = LoadQuestionsFromJson();
         if (!quiz.QuestionsBySection.ContainsKey(section))
         {
-            quiz.QuestionsBySection[section] = new List<Question>();
+            quiz.QuestionsBySection[section] = new List<QuestionSection>();
         }
-        question.ID = quiz.LastID + 1;
-        quiz.QuestionsBySection[section].Add(question);
+        questionSection.ID = quiz.LastID + 1;
+        quiz.QuestionsBySection[section].Add(questionSection);
         quiz.LastID++;
         SaveQuizzesToJson(quiz);
     }
 }
-
 
 public class UI
 {
@@ -227,6 +232,43 @@ public class UI
         return null;
     }
 
+    private string ChooseTheme(string section)
+    {
+        Quiz quiz = quizSystem.LoadQuestionsFromJson();
+
+        if (!quiz.QuestionsBySection.ContainsKey(section))
+        {
+            ShowError("Выбранный раздел не существует.");
+            return null;
+        }
+
+        Console.WriteLine($"Доступные темы для раздела '{section}':");
+        int themeIndex = 1;
+        Dictionary<int, string> themeIndexes = new Dictionary<int, string>();
+        foreach (var questionSection in quiz.QuestionsBySection[section])
+        {
+            Console.WriteLine($"{themeIndex}. {questionSection.Theme}");
+            themeIndexes[themeIndex] = questionSection.Theme;
+            themeIndex++;
+        }
+
+        int chosenThemeIndex;
+        Console.Write($"Выберите тему для раздела '{section}': ");
+        while (!int.TryParse(Console.ReadLine(), out chosenThemeIndex) || !themeIndexes.ContainsKey(chosenThemeIndex))
+        {
+            ShowError("Некорректный ввод. Пожалуйста, выберите номер темы из списка выше.");
+            Console.Write($"Выберите тему для раздела '{section}': ");
+        }
+
+        return themeIndexes[chosenThemeIndex];
+    }
+
+    public void ShowResultForTheme(string section, string theme, int correctAnswersCount, int totalQuestionsCount)
+    {
+        Console.WriteLine($"Результаты для раздела '{section}' и темы '{theme}':");
+        Console.WriteLine($"Вы ответили правильно на {correctAnswersCount} из {totalQuestionsCount} вопросов.");
+    }
+
     public void StartQuiz(User user)
     {
         Quiz quiz = quizSystem.LoadQuestionsFromJson();
@@ -238,13 +280,30 @@ public class UI
         }
 
         Console.WriteLine("Доступные разделы викторины:");
+        int sectionIndex = 1;
+        Dictionary<int, string> sectionIndexes = new Dictionary<int, string>();
         foreach (var section in quiz.QuestionsBySection)
         {
-            Console.WriteLine(section.Key);
+            Console.WriteLine($"{sectionIndex}. {section.Key}");
+            sectionIndexes[sectionIndex] = section.Key;
+            sectionIndex++;
         }
 
+        int chosenSectionIndex;
         Console.Write("Выберите раздел викторины: ");
-        string chosenSection = Console.ReadLine();
+        while (!int.TryParse(Console.ReadLine(), out chosenSectionIndex) || !sectionIndexes.ContainsKey(chosenSectionIndex))
+        {
+            ShowError("Некорректный ввод. Пожалуйста, выберите номер раздела из списка выше.");
+            Console.Write("Выберите раздел викторины: ");
+        }
+
+        string chosenSection = sectionIndexes[chosenSectionIndex];
+
+        string chosenTheme = ChooseTheme(chosenSection);
+        if (chosenTheme == null)
+        {
+            return;
+        }
 
         if (!quiz.QuestionsBySection.ContainsKey(chosenSection))
         {
@@ -252,36 +311,40 @@ public class UI
             return;
         }
 
-        List<Question> questions = quiz.QuestionsBySection[chosenSection];
+        List<QuestionSection> questionSections = quiz.QuestionsBySection[chosenSection].Where(qs => qs.Theme == chosenTheme).ToList();
         int correctAnswersCount = 0;
 
-        foreach (Question question in questions)
+        foreach (QuestionSection section in questionSections)
         {
-            Console.WriteLine(question.Text);
-            foreach (Answer answer in question.Answers)
+            Console.WriteLine($"Тема: {section.Theme}");
+            foreach (Question question in section.Questions)
             {
-                Console.WriteLine(answer.Text);
-            }
-            Console.Write("Введите номер правильного ответа: ");
-            int chosenAnswerIndex;
-            while (!int.TryParse(Console.ReadLine(), out chosenAnswerIndex) || chosenAnswerIndex < 1 || chosenAnswerIndex > question.Answers.Count)
-            {
-                Console.WriteLine("Некорректный ввод. Пожалуйста, выберите номер правильного ответа из списка выше.");
+                Console.WriteLine($"Вопрос: {question.QuestionText}");
+                foreach (Answer answer in question.Answers)
+                {
+                    Console.WriteLine(answer.Text);
+                }
                 Console.Write("Введите номер правильного ответа: ");
-            }
+                int chosenAnswerIndex;
+                while (!int.TryParse(Console.ReadLine(), out chosenAnswerIndex) || chosenAnswerIndex < 1 || chosenAnswerIndex > question.Answers.Count)
+                {
+                    ShowError("Некорректный ввод. Пожалуйста, выберите номер правильного ответа из списка выше.");
+                    Console.Write("Введите номер правильного ответа: ");
+                }
 
-            if (question.Answers[chosenAnswerIndex - 1].IsCorrect)
-            {
-                Console.WriteLine("Верно!");
-                correctAnswersCount++;
-            }
-            else
-            {
-                Console.WriteLine("Неверно!");
+                if (question.Answers[chosenAnswerIndex - 1].IsCorrect)
+                {
+                    Console.WriteLine("Верно!");
+                    correctAnswersCount++;
+                }
+                else
+                {
+                    Console.WriteLine("Неверно!");
+                }
             }
         }
 
-        Console.WriteLine($"Вы ответили правильно на {correctAnswersCount} из {questions.Count} вопросов.");
+        ShowResultForTheme(chosenSection, chosenTheme, correctAnswersCount, questionSections.SelectMany(qs => qs.Questions).Count());
     }
 
     public void ChangePassword(User user)
@@ -298,7 +361,7 @@ public class UI
         DateTime newDateOfBirth;
         while (!DateTime.TryParse(Console.ReadLine(), out newDateOfBirth))
         {
-            Console.WriteLine("Некорректный ввод. Пожалуйста, введите дату в правильном формате (гггг-мм-дд).");
+            ShowError("Некорректный ввод. Пожалуйста, введите дату в правильном формате (гггг-мм-дд).");
             Console.Write("Введите новую дату рождения (гггг-мм-дд): ");
         }
         user.ChangeDateOfBirth(newDateOfBirth);
@@ -309,16 +372,18 @@ public class UI
     {
         Console.Write("Введите раздел: ");
         string section = Console.ReadLine();
+        Console.Write("Введите тему: ");
+        string theme = Console.ReadLine();
         Console.Write("Введите текст вопроса: ");
         string questionText = Console.ReadLine();
         Console.Write("Введите количество ответов: ");
         int answerCount;
         while (!int.TryParse(Console.ReadLine(), out answerCount))
         {
-            Console.WriteLine("Некорректный ввод. Пожалуйста, введите число.");
+            ShowError("Некорректный ввод. Пожалуйста, введите число.");
             Console.Write("Введите количество ответов: ");
         }
-        List<Answer> answers = new List<Answer>();
+        List<Question> questions = new List<Question>();
         for (int i = 0; i < answerCount; i++)
         {
             Console.Write($"Введите текст ответа {i + 1}: ");
@@ -327,13 +392,13 @@ public class UI
             bool isCorrect;
             while (!bool.TryParse(Console.ReadLine(), out isCorrect))
             {
-                Console.WriteLine("Некорректный ввод. Пожалуйста, введите true или false.");
+                ShowError("Некорректный ввод. Пожалуйста, введите true или false.");
                 Console.Write("Этот ответ верный? (true/false): ");
             }
-            answers.Add(new Answer { Text = answerText, IsCorrect = isCorrect });
+            questions.Add(new Question { QuestionText = questionText, Answers = new List<Answer> { new Answer { Text = answerText, IsCorrect = isCorrect } } });
         }
-        Question question = new Question { Theme = section, Text = questionText, Answers = answers };
-        quizSystem.AddQuestion(section, question);
+        QuestionSection questionSection = new QuestionSection { Theme = theme, Questions = questions };
+        quizSystem.AddQuestion(section, questionSection);
         Console.WriteLine("Вопрос успешно добавлен.");
     }
 }
@@ -392,5 +457,4 @@ class Program
             }
         }
     }
-
 }
