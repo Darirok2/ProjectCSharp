@@ -138,6 +138,21 @@ public class QuizSystem
         quiz.LastID++;
         SaveQuizzesToJson(quiz);
     }
+
+    public List<Question> GetRandomQuestions(int count)
+    {
+        Quiz quiz = LoadQuestionsFromJson();
+        List<Question> allQuestions = quiz.QuestionsBySection.Values.SelectMany(qs => qs.SelectMany(q => q.Questions)).ToList();
+        if (allQuestions.Count <= count)
+        {
+            return allQuestions;
+        }
+        else
+        {
+            Random random = new Random();
+            return allQuestions.OrderBy(q => random.Next()).Take(count).ToList();
+        }
+    }
 }
 
 public class UI
@@ -167,7 +182,8 @@ public class UI
         Console.WriteLine("2. Изменить пароль");
         Console.WriteLine("3. Изменить дату рождения");
         Console.WriteLine("4. Добавить вопрос");
-        Console.WriteLine("5. Выйти");
+        Console.WriteLine("5. Пройти 20 случайных вопросов");
+        Console.WriteLine("6. Выйти");
     }
 
     public static void ShowLoginMenu()
@@ -320,10 +336,14 @@ public class UI
             foreach (Question question in section.Questions)
             {
                 Console.WriteLine($"Вопрос: {question.QuestionText}");
+
+                // Выводим ответы на вопрос
                 foreach (Answer answer in question.Answers)
                 {
                     Console.WriteLine(answer.Text);
                 }
+
+                // Запрашиваем ввод номера правильного ответа
                 Console.Write("Введите номер правильного ответа: ");
                 int chosenAnswerIndex;
                 while (!int.TryParse(Console.ReadLine(), out chosenAnswerIndex) || chosenAnswerIndex < 1 || chosenAnswerIndex > question.Answers.Count)
@@ -332,6 +352,7 @@ public class UI
                     Console.Write("Введите номер правильного ответа: ");
                 }
 
+                // Проверяем правильность ответа
                 if (question.Answers[chosenAnswerIndex - 1].IsCorrect)
                 {
                     Console.WriteLine("Верно!");
@@ -401,6 +422,26 @@ public class UI
         quizSystem.AddQuestion(section, questionSection);
         Console.WriteLine("Вопрос успешно добавлен.");
     }
+
+    public void ShowRandomQuestions()
+    {
+        List<Question> randomQuestions = quizSystem.GetRandomQuestions(20);
+        if (randomQuestions.Count == 0)
+        {
+            Console.WriteLine("Нет доступных вопросов для случайной викторины.");
+            return;
+        }
+
+        Console.WriteLine("Случайные вопросы:");
+        for (int i = 0; i < randomQuestions.Count; i++)
+        {
+            Console.WriteLine($"Вопрос {i + 1}: {randomQuestions[i].QuestionText}");
+            foreach (Answer answer in randomQuestions[i].Answers)
+            {
+                Console.WriteLine(answer.Text);
+            }
+        }
+    }
 }
 
 class Program
@@ -447,6 +488,10 @@ class Program
                         ui.AddQuestion(loggedInUser);
                         break;
                     case 5:
+                        // Показать случайные вопросы
+                        ui.ShowRandomQuestions();
+                        break;
+                    case 6:
                         // Выход из системы
                         loggedInUser = null;
                         break;
