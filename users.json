@@ -1,0 +1,14 @@
+[
+  {
+    "Nickname": "user_three",
+    "Password": "newPassword456",
+    "DateOfBirth": "1988-03-20T00:00:00",
+    "IsAdmin": false
+  },
+  {
+    "Nickname": "Darirok2",
+    "Password": "",
+    "DateOfBirth": "2024-03-29T23:57:21.201161+07:00",
+    "IsAdmin": false
+  }
+]
