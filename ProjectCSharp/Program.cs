@@ -188,7 +188,6 @@ public class UI
         Console.WriteLine("2. Изменить пароль");
         Console.WriteLine("3. Изменить дату рождения");
         Console.WriteLine("4. Добавить вопрос");
-        //Console.WriteLine("5. Пройти 20 случайных вопросов");
         Console.WriteLine("5. Выйти");
     }
 
@@ -383,88 +382,25 @@ public class UI
             }
         }
 
-        ShowResultForTheme(chosenSection, chosenTheme, correctAnswersCount, questionSections.SelectMany(qs => qs.Questions).Count());
-    }
-
-    public void ChangePassword(User user)
-    {
-        Console.Write("Введите новый пароль: ");
-        string newPassword = Console.ReadLine();
-        user.ChangePassword(newPassword);
-        Console.WriteLine("Пароль успешно изменен.");
-    }
-
-    public void ChangeDateOfBirth(User user)
-    {
-        Console.Write("Введите новую дату рождения (гггг-мм-дд): ");
-        DateTime newDateOfBirth;
-        while (!DateTime.TryParse(Console.ReadLine(), out newDateOfBirth))
-        {
-            ShowError("Некорректный ввод. Пожалуйста, введите дату в правильном формате (гггг-мм-дд).");
-            Console.Write("Введите новую дату рождения (гггг-мм-дд): ");
-        }
-        user.ChangeDateOfBirth(newDateOfBirth);
-        Console.WriteLine("Дата рождения успешно изменена.");
-    }
-
-    public void AddQuestion(User user)
-    {
-        Console.Write("Введите раздел: ");
-        string section = Console.ReadLine();
-        Console.Write("Введите тему: ");
-        string theme = Console.ReadLine();
-        Console.Write("Введите текст вопроса: ");
-        string questionText = Console.ReadLine();
-        Console.Write("Введите количество ответов: ");
-        int answerCount;
-        while (!int.TryParse(Console.ReadLine(), out answerCount))
-        {
-            ShowError("Некорректный ввод. Пожалуйста, введите число.");
-            Console.Write("Введите количество ответов: ");
-        }
-        List<Question> questions = new List<Question>();
-        for (int i = 0; i < answerCount; i++)
-        {
-            Console.Write($"Введите текст ответа {i + 1}: ");
-            string answerText = Console.ReadLine();
-            Console.Write("Этот ответ верный? (true/false): ");
-            bool isCorrect;
-            while (!bool.TryParse(Console.ReadLine(), out isCorrect))
-            {
-                ShowError("Некорректный ввод. Пожалуйста, введите true или false.");
-                Console.Write("Этот ответ верный?(true/false): ");
-            }
-            questions.Add(new Question { QuestionText = questionText, Answers = new List<Answer> { new Answer { Text = answerText, IsCorrect = isCorrect } } });
-        }
-        QuestionSection questionSection = new QuestionSection { Theme = theme, Questions = questions };
-        quizSystem.AddQuestion(section, questionSection);
-        Console.WriteLine("Вопрос успешно добавлен.");
+        ShowResultForTheme(chosenSection, chosenTheme, correctAnswersCount, questionSections.Count);
     }
 
     public void ShowRandomQuestions()
     {
         List<Question> randomQuestions = quizSystem.GetRandomQuestions(20);
-        if (randomQuestions.Count == 0)
-        {
-            Console.WriteLine("Нет доступных вопросов для случайной викторины.");
-            return;
-        }
-
-        Console.WriteLine("Случайные вопросы:");
-
-        int correctAnswersCount = 0; // Переменная для подсчета правильных ответов
+        int correctAnswersCount = 0;
 
         foreach (Question question in randomQuestions)
         {
             Console.WriteLine($"Вопрос: {question.QuestionText}");
 
             // Выводим ответы на вопрос
-            foreach (Answer answer in question.Answers)
+            for (int i = 0; i < question.Answers.Count; i++)
             {
-                Console.WriteLine($"Ответ: {answer.Text}");
+                Console.WriteLine($"{i + 1}. {question.Answers[i].Text}");
             }
 
-            // Запрашиваем ответ пользователя
+            // Запрашиваем ввод номера правильного ответа
             Console.Write("Введите номер правильного ответа: ");
             int chosenAnswerIndex;
             while (!int.TryParse(Console.ReadLine(), out chosenAnswerIndex) || chosenAnswerIndex < 1 || chosenAnswerIndex > question.Answers.Count)
@@ -477,7 +413,7 @@ public class UI
             if (question.Answers[chosenAnswerIndex - 1].IsCorrect)
             {
                 Console.WriteLine("Верно!");
-                correctAnswersCount++; // Увеличиваем счетчик правильных ответов
+                correctAnswersCount++;
             }
             else
             {
@@ -485,8 +421,85 @@ public class UI
             }
         }
 
-        // Выводим результаты прохождения викторины
         Console.WriteLine($"Вы ответили правильно на {correctAnswersCount} из {randomQuestions.Count} вопросов.");
+    }
+
+    public void Run()
+    {
+        User loggedInUser = RunLoginMenu();
+        if (loggedInUser == null)
+        {
+            return;
+        }
+
+        bool exit = false;
+        do
+        {
+            ShowMenu();
+            int choice;
+            int.TryParse(Console.ReadLine(), out choice);
+
+            switch (choice)
+            {
+                case 1:
+                    StartQuiz(loggedInUser);
+                    break;
+                case 2:
+                    Console.Write("Введите новый пароль: ");
+                    string newPassword = Console.ReadLine();
+                    loggedInUser.ChangePassword(newPassword);
+                    Console.WriteLine("Пароль успешно изменен.");
+                    break;
+                case 3:
+                    Console.Write("Введите новую дату рождения (гггг-мм-дд): ");
+                    DateTime newDateOfBirth;
+                    while (!DateTime.TryParse(Console.ReadLine(), out newDateOfBirth))
+                    {
+                        Console.WriteLine("Некорректный ввод. Пожалуйста, введите дату в правильном формате (гггг-мм-дд).");
+                        Console.Write("Введите новую дату рождения (гггг-мм-дд): ");
+                    }
+                    loggedInUser.ChangeDateOfBirth(newDateOfBirth);
+                    Console.WriteLine("Дата рождения успешно изменена.");
+                    break;
+                case 4:
+                    Console.Write("Введите название раздела: ");
+                    string section = Console.ReadLine();
+                    Console.Write("Введите тему вопроса: ");
+                    string theme = Console.ReadLine();
+                    Console.Write("Введите текст вопроса: ");
+                    string questionText = Console.ReadLine();
+                    List<Answer> answers = new List<Answer>();
+
+                    bool addingAnswers = true;
+                    do
+                    {
+                        Console.Write("Введите текст ответа: ");
+                        string answerText = Console.ReadLine();
+                        Console.Write("Это правильный ответ? (Да/Нет): ");
+                        string isCorrectInput = Console.ReadLine();
+                        bool isCorrect = isCorrectInput.Equals("Да", StringComparison.OrdinalIgnoreCase);
+
+                        answers.Add(new Answer { Text = answerText, IsCorrect = isCorrect });
+
+                        Console.Write("Хотите добавить еще один ответ? (Да/Нет): ");
+                        string addAnotherAnswerInput = Console.ReadLine();
+                        addingAnswers = addAnotherAnswerInput.Equals("Да", StringComparison.OrdinalIgnoreCase);
+                    } while (addingAnswers);
+
+                    Question newQuestion = new Question { QuestionText = questionText, Answers = answers };
+                    QuestionSection questionSection = new QuestionSection { Theme = theme, Questions = new List<Question> { newQuestion } };
+
+                    quizSystem.AddQuestion(section, questionSection);
+                    Console.WriteLine("Вопрос успешно добавлен.");
+                    break;
+                case 5:
+                    exit = true;
+                    break;
+                default:
+                    Console.WriteLine("Некорректный ввод. Попробуйте снова.");
+                    break;
+            }
+        } while (!exit);
     }
 }
 
@@ -496,56 +509,6 @@ class Program
     {
         QuizSystem quizSystem = new QuizSystem();
         UI ui = new UI(quizSystem);
-
-        User loggedInUser = null;
-
-        while (true)
-        {
-            if (loggedInUser == null)
-            {
-                loggedInUser = ui.RunLoginMenu();
-            }
-            else
-            {
-                UI.ShowMenu();
-                int choice;
-                if (!int.TryParse(Console.ReadLine(), out choice))
-                {
-                    UI.ShowError("Некорректный ввод. Попробуйте снова.");
-                    continue;
-                }
-
-                switch (choice)
-                {
-                    case 1:
-                        // Прохождение викторины
-                        ui.StartQuiz(loggedInUser);
-                        break;
-                    case 2:
-                        // Изменение пароля
-                        ui.ChangePassword(loggedInUser);
-                        break;
-                    case 3:
-                        // Изменение даты рождения
-                        ui.ChangeDateOfBirth(loggedInUser);
-                        break;
-                    case 4:
-                        // Добавление вопроса
-                        ui.AddQuestion(loggedInUser);
-                        break;
-                    //case 5:
-                    //    // Показать случайные вопросы
-                    //    ui.ShowRandomQuestions();
-                    //    break;
-                    case 5:
-                        // Выход из системы
-                        loggedInUser = null;
-                        break;
-                    default:
-                        UI.ShowError("Некорректный ввод. Попробуйте снова.");
-                        break;
-                }
-            }
-        }
+        ui.Run();
     }
 }
