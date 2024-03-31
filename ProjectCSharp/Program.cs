@@ -122,6 +122,12 @@ public class QuizSystem
     public void AddUser(User newUser)
     {
         List<User> users = LoadUsersFromJson();
+        if (users.Any(u => u.Nickname == newUser.Nickname))
+        {
+            Console.WriteLine("Пользователь с таким никнеймом уже существует.");
+            return;
+        }
+
         users.Add(newUser);
         SaveUsersToJson(users);
     }
@@ -182,8 +188,8 @@ public class UI
         Console.WriteLine("2. Изменить пароль");
         Console.WriteLine("3. Изменить дату рождения");
         Console.WriteLine("4. Добавить вопрос");
-        Console.WriteLine("5. Пройти 20 случайных вопросов");
-        Console.WriteLine("6. Выйти");
+        //Console.WriteLine("5. Пройти 20 случайных вопросов");
+        Console.WriteLine("5. Выйти");
     }
 
     public static void ShowLoginMenu()
@@ -305,6 +311,11 @@ public class UI
             sectionIndex++;
         }
 
+        // Добавляем опцию "Случайные 20 вопросов"
+        Console.WriteLine($"{sectionIndex}. Случайные 20 вопросов");
+        sectionIndexes[sectionIndex] = "RandomQuestions";
+        sectionIndex++;
+
         int chosenSectionIndex;
         Console.Write("Выберите раздел викторины: ");
         while (!int.TryParse(Console.ReadLine(), out chosenSectionIndex) || !sectionIndexes.ContainsKey(chosenSectionIndex))
@@ -314,6 +325,13 @@ public class UI
         }
 
         string chosenSection = sectionIndexes[chosenSectionIndex];
+
+        // Если выбрана опция "Случайные 20 вопросов"
+        if (chosenSection == "RandomQuestions")
+        {
+            ShowRandomQuestions();
+            return;
+        }
 
         string chosenTheme = ChooseTheme(chosenSection);
         if (chosenTheme == null)
@@ -433,14 +451,42 @@ public class UI
         }
 
         Console.WriteLine("Случайные вопросы:");
-        for (int i = 0; i < randomQuestions.Count; i++)
+
+        int correctAnswersCount = 0; // Переменная для подсчета правильных ответов
+
+        foreach (Question question in randomQuestions)
         {
-            Console.WriteLine($"Вопрос {i + 1}: {randomQuestions[i].QuestionText}");
-            foreach (Answer answer in randomQuestions[i].Answers)
+            Console.WriteLine($"Вопрос: {question.QuestionText}");
+
+            // Выводим ответы на вопрос
+            foreach (Answer answer in question.Answers)
             {
-                Console.WriteLine(answer.Text);
+                Console.WriteLine($"Ответ: {answer.Text}");
+            }
+
+            // Запрашиваем ответ пользователя
+            Console.Write("Введите номер правильного ответа: ");
+            int chosenAnswerIndex;
+            while (!int.TryParse(Console.ReadLine(), out chosenAnswerIndex) || chosenAnswerIndex < 1 || chosenAnswerIndex > question.Answers.Count)
+            {
+                ShowError("Некорректный ввод. Пожалуйста, выберите номер правильного ответа из списка выше.");
+                Console.Write("Введите номер правильного ответа: ");
+            }
+
+            // Проверяем правильность ответа
+            if (question.Answers[chosenAnswerIndex - 1].IsCorrect)
+            {
+                Console.WriteLine("Верно!");
+                correctAnswersCount++; // Увеличиваем счетчик правильных ответов
+            }
+            else
+            {
+                Console.WriteLine("Неверно!");
             }
         }
+
+        // Выводим результаты прохождения викторины
+        Console.WriteLine($"Вы ответили правильно на {correctAnswersCount} из {randomQuestions.Count} вопросов.");
     }
 }
 
@@ -487,11 +533,11 @@ class Program
                         // Добавление вопроса
                         ui.AddQuestion(loggedInUser);
                         break;
+                    //case 5:
+                    //    // Показать случайные вопросы
+                    //    ui.ShowRandomQuestions();
+                    //    break;
                     case 5:
-                        // Показать случайные вопросы
-                        ui.ShowRandomQuestions();
-                        break;
-                    case 6:
                         // Выход из системы
                         loggedInUser = null;
                         break;
